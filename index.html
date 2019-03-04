@@ -1,0 +1,148 @@
+<html>
+	<head>
+		<title>Stratified Empirical Burnstein Bound</title>
+	</head>
+	<body>
+		<font size="+2">El'Cheapo Stratied Finite Empirical Bernstein Sampling Calculator:</font><br><br>
+		A calculator for a conservative upper bound of the error in stratified sampling. roughly implemented from the paper "Stratied Finite Empirical Bernstein Sampling" By Mark Burgess and Archie Chapman.<br>
+		Fill in the details of your sampling and it will output a width of the confidence interval for your stratified population estimate.<br><br>
+
+	Example:
+		<div style="width: 600px; border-width: 1px; border-color: black;border-style: solid;padding: 2px;">
+If we want to poll how much a county’s population supports
+a particular government policy (as a binary question), it may make good sense to selectively poll the
+different voting blocks within the country. 
+For instance, if we accurately estimate
+that blocks A, B and C, Contiain 1,000 and 4,000 and 5,000 individuals which make up the entire population. 
+And we have polled 100 and 400 and 100 individuals (without replacement) from thoes blockes respectively with 2 and 280 and 30 individals having responded positively.<br>
+then we can estimate that 43.2&plusmn;12.12 percent of the total population supports the policy with 95 percent confidence </div>
+	<br><br>
+	The range of the data values is the maximum minus minimum value of the data in the population, the sample variance is the unbased expression: sum((x_i-mean)^2)/(n_i-1)<br>
+	The Size of the Strata Population is the actual population size of the strata, of which the number of strata samples are taken (either with or without replacement.
+	<br><br>
+		
+		How many Strata do you have:<br>
+		<input id="strata_number" type="number" min=1 value=1 step=1/><br>
+		What Confidence level do you want:<br>
+		<input id="confidence" type="number" min=0.01 nax=0.99 value=0.5 step=0.01/> eg.0.95 for 95% confidence<br><br>
+		<div id="body_div" style="display: flex;"></div>
+		<br><br>
+		<input type="button" id="calculate" value="Calculate"/> 
+		<br><br>
+		<div id="results"></div>
+		<br><br>
+		For multi-dimensional data, or for more information please consult <a href="https://www.preprints.org/manuscript/201901.0202/v1">the original paper</a>.<br>
+		For Code and implementation details check the Javascript of this page<br> or alternatively goto <a href="https://github.com/Markopolo141/Stratified_Empirical_Bernstein_Sampling">GitHub source</a> for all the sourcecode utilised to produce results of the original paper.<br>
+		Note that the code is a slightly suboptimal implementation of the paper's analysis<br>Warning: Code and analysis not yet peer reviewed.
+	</body>
+	<script>
+
+sum_function = function(a, b) { return a + b; };
+min_function = function(a,b){return Math.min(a,b);};
+OmegaBig = function(n,N) {return (n+1)*(1-n*1.0/N)*1.0/(n**2);};
+PsiBig = function(n,N) {return (N+1.0-n)/(n**2);};
+OmegaSmall = function(n,N) {return 1.0/n;};
+PsiSmall = function(n,N) {return 1.0/n;};
+
+function burgess_bound(N,ni,Ni,svar,d,replacement,r) {
+	var sumN = Ni.reduce(sum_function, 0);
+	var onN = [0,0];
+	var max1 = [0,0];
+	var var1 = [0,0];
+	var d1 = [0,0];
+	var log6r = Math.log(6.0/r);
+	var log3r = Math.log(3.0/r);
+	var log6Nr = Math.log(N*6.0/r);
+	for (var i=0;i<N;i++) {
+		var tau2 = (Ni[i]*1.0/sumN)**2;
+		if (replacement[i]) {
+			var OS = OmegaSmall(ni[i],Ni[i]);
+			var PS = PsiSmall(ni[i],Ni[i]);
+			onN[0] += d[i]**2*PS*OS*tau2;
+			onN[1] += d[i]**2*PS*OS*tau2;
+			max1[0] = Math.max(max1[0],d[i]**2*PS*PS*tau2);
+			max1[1] = Math.max(max1[1],d[i]**2*PS*PS*tau2);
+			var1[0] += PS*((ni[i]-1)*svar[i]*1.0/ni[i])*tau2;
+			var1[1] += PS*((ni[i]-1)*svar[i]*1.0/ni[i])*tau2;
+			d1[0] += d[i]**2*OS*tau2;
+			d1[1] += d[i]**2*OS*tau2;
+		} else {
+			var OB = OmegaBig(ni[i],Ni[i]);
+			var OS = OmegaSmall(ni[i],Ni[i]);
+			var PB = PsiBig(ni[i],Ni[i]);
+			var PS = PsiSmall(ni[i],Ni[i]);
+			onN[0] += d[i]**2*PB*Math.min(OB,OS)*tau2;
+			onN[1] += d[i]**2*PS*Math.min(OB,OS)*tau2;
+			max1[0] = Math.max(max1[0],d[i]**2*PB*Math.min(PB,PS)*tau2);
+			max1[1] = Math.max(max1[1],d[i]**2*PS*Math.min(PB,PS)*tau2);
+			var1[0] += PB*((ni[i]-1)*svar[i]*1.0/ni[i])*tau2;
+			var1[1] += PS*((ni[i]-1)*svar[i]*1.0/ni[i])*tau2;
+			d1[0] += d[i]**2*OB*tau2;
+			d1[1] += d[i]**2*OS*tau2;
+		}
+	}
+	var A = [0,0];
+	A[0] = (4.0/(17))*log6r*d1[0] + log6r*(Math.sqrt(2*var1[0] + log6Nr*onN[0] + log3r*max1[0]) + Math.sqrt(log3r*max1[0]))**2;
+	A[1] = (4.0/(17))*log6r*d1[1] + log6r*(Math.sqrt(2*var1[1] + log6Nr*onN[1] + log3r*max1[1]) + Math.sqrt(log3r*max1[1]))**2;
+	return Math.sqrt(A.reduce(min_function,Infinity));
+}
+
+
+
+sub_element1 = '<div id="element'
+sub_element2 = '" style="width: 200px;float: left;border-color: blue;border-style: solid;margin-right: 3px;padding: 3px;">Strata '
+sub_element3 = ':<br><br>Range of Strata Population Values:<br><input type="number" min="0" value="1" /><br>Sample Variance of the Strata:<br><input type="number" min="0" value="0" /><br>Sampling Mode:<br><input type="radio" name="replacement'
+sub_element4 = '" value="with" checked />With Replacement<br><input type="radio" name="replacement'
+sub_element5 = '" value="without" />Without Replacement<br>Size of Strata Population:<br><input id="size" type="number" min="1" value="1" step="1"/><br>Number of Strata Samples:<br><input id="sample_size" type="number" min=2 value=2 step=1/></div>'
+Strata_Number = document.getElementById("strata_number");
+Body_Div = document.getElementById("body_div");
+function blah(a) {
+	var number;
+	number = Number(Strata_Number.value);
+	number = number.toFixed(0);
+	Strata_Number.value = String(number);
+	Body_Div.innerHTML="";
+	s = ""
+	for (var i=0; i<number; i++) {
+		s += sub_element1;
+		s += i.toString();
+		s += sub_element2;
+		s += i.toString();
+		s += sub_element3;
+		s += i.toString();
+		s += sub_element4;
+		s += i.toString();
+		s += sub_element5;
+	}
+	Body_Div.innerHTML=s;
+}
+Strata_Number.oninput = blah;
+blah();
+Confidence_Number = document.getElementById("confidence");
+Calculate_Button = document.getElementById("calculate");
+Results_Space = document.getElementById("results");
+Calculate_Button.onclick = function() {
+	r = 1.0-Number(Confidence_Number.value);
+	N = Number(Strata_Number.value);
+	Ni = [];
+	ni = [];
+	d = [];
+	svar = [];
+	replacement = [];
+	for (var i=0; i<Body_Div.children.length; i++) {
+		el = Body_Div.children[i];
+		d.push(Number(el.children[3].value));
+		svar.push(Number(el.children[6].value));
+		Ni.push(Number(el.children[14].value));
+		ni.push(Number(el.children[17].value));
+		replacement.push(el.children[9].checked);
+	}
+	var bound_value = burgess_bound(N,ni,Ni,svar,d,replacement,r);
+	Results_Space.innerHTML = "Conservative Confidence Interval Width: " + 2*bound_value;
+	//"You should probably choose one/more samples from Strata: "
+};
+
+
+
+	</script>
+</html>
